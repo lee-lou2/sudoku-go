@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다양한 크기의 스도쿠 테이블</title>
+    <style>
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f7f7f7;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow: auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        select {
+            padding: 0.5rem;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .refresh-button {
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .refresh-button:hover {
+            background-color: #218838;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+        }
+
+        td {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            min-height: 50px;
+            text-align: center;
+            vertical-align: middle;
+            border: 1px solid #ddd;
+            font-size: 20px;
+        }
+
+        td input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            text-align: center;
+            font-size: 20px;
+            outline: none;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            min-width: 50px;
+            color: black; /* 기본 입력 색상 */
+        }
+
+        input::-webkit-inner-spin-button,
+        input::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .solve-button,
+        .hide-solution-button {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .solve-button:hover,
+        .hide-solution-button:hover {
+            background-color: #0056b3;
+        }
+
+        .hide-solution-button {
+            background-color: #FF6347;
+        }
+
+        .hide-solution-button:hover {
+            background-color: #D9534F;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px; /* 버튼 사이 간격 */
+            margin-top: 1rem;
+        }
+
+        select, button {
+            padding: 0.5rem;
+            font-size: 1rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 2rem;
+            z-index: 1000;
+        }
+
+        .solve-button, .hide-solution-button {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>스도쿠 테이블</h1>
+    <div class="controls">
+        <select id="sudokuType">
+            <option value="2,2">4x4 (2x2 블록)</option>
+            <option value="2,3">6x6 (2x3 블록)</option>
+            <option value="2,4">8x8 (2x4 블록)</option>
+            <option value="3,3" selected>9x9 (3x3 블록)</option>
+            <option value="2,5">10x10 (2x5 블록)</option>
+            <option value="3,4">12x12 (3x4 블록)</option>
+            <option value="5,3">15x15 (5x3 블록)</option>
+            <option value="4,4">16x16 (4x4 블록)</option>
+            <option value="5,5">25x25 (5x5 블록)</option>
+            <option value="6,6">36x36 (6x6 블록)</option>
+            <option value="7,7">49x49 (7x7 블록)</option>
+            <option value="8,8">64x64 (8x8 블록)</option>
+            <option value="9,9">81x81 (9x9 블록)</option>
+        </select>
+        <button class="refresh-button" id="refreshButton">새로고침</button>
+    </div>
+    <div id="sudokuTable"></div>
+    <div class="button-container">
+        <button class="solve-button" id="solveButton">정답 확인</button>
+        <button class="hide-solution-button" id="hideSolutionButton" style="display: none;">정답 숨기기</button>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">로딩 중...</div>
+
+<script>
+    let originalValues = [];  // 원래 값 저장
+
+    function createSudokuTable(rows, cols) {
+        const table = document.createElement('table');
+        const size = rows * cols;
+        for (let i = 0; i < size; i++) {
+            const row = document.createElement('tr');
+            for (let j = 0; j < size; j++) {
+                const cell = document.createElement('td');
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.min = '1';
+                input.max = size.toString();
+                cell.appendChild(input);
+                row.appendChild(cell);
+            }
+            table.appendChild(row);
+        }
+        return table;
+    }
+
+    function setBorders(table, rows, cols) {
+        const size = rows * cols;
+        const cells = table.getElementsByTagName('td');
+        for (let i = 0; i < cells.length; i++) {
+            const row = Math.floor(i / size);
+            const col = i % size;
+            if ((col + 1) % cols === 0 && col !== size - 1) {
+                cells[i].style.borderRight = '2px solid #333';
+            }
+            if ((row + 1) % rows === 0 && row !== size - 1) {
+                cells[i].style.borderBottom = '2px solid #333';
+            }
+        }
+    }
+
+    function initSudoku() {
+        const [rows, cols] = document.getElementById('sudokuType').value.split(',').map(Number);
+        const size = rows * cols;
+        const sudokuTable = document.getElementById('sudokuTable');
+        sudokuTable.innerHTML = '';
+        const table = createSudokuTable(rows, cols);
+        setBorders(table, rows, cols);
+        sudokuTable.appendChild(table);
+
+        const inputs = sudokuTable.getElementsByTagName('input');
+        for (let input of inputs) {
+            input.addEventListener('input', function () {
+                if (this.value.length > String(size).length) {
+                    this.value = this.value.slice(0, String(size).length);
+                }
+                if (parseInt(this.value) > size) {
+                    this.value = '';
+                }
+            });
+        }
+    }
+
+    function getSudokuValues() {
+        const inputs = document.querySelectorAll('#sudokuTable input');
+        const values = [];
+        inputs.forEach(input => {
+            const value = input.value ? parseInt(input.value) : 0;
+            values.push(value);
+        });
+        return values;
+    }
+
+    function getRequestSudokuValues() {
+        const [rows, cols] = document.getElementById('sudokuType').value.split(',').map(Number);
+        const size = rows * cols;
+        const values = getSudokuValues();
+        const grid = [];
+        for (let i = 0; i < size; i++) {
+            grid.push(values.slice(i * size, (i + 1) * size));
+        }
+        return grid;
+    }
+
+    function setSudokuValues(solution) {
+        solution = solution.flat();
+        const inputs = document.querySelectorAll('#sudokuTable input');
+        inputs.forEach((input, index) => {
+            if (!input.value) {
+                input.value = solution[index];
+                input.style.color = '#ff6666';
+            } else {
+                input.style.color = 'black';
+            }
+        });
+    }
+
+    function toggleLoading(isLoading) {
+        const overlay = document.getElementById('loadingOverlay');
+        const buttons = document.querySelectorAll('button, select');
+        if (isLoading) {
+            overlay.style.display = 'flex';
+            buttons.forEach(btn => btn.disabled = true);
+        } else {
+            overlay.style.display = 'none';
+            buttons.forEach(btn => btn.disabled = false);
+        }
+    }
+
+    async function checkSolution() {
+        toggleLoading(true); // 로딩 시작
+        try {
+            const response = await fetch('/v1/sudoku/solve', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({grid: getRequestSudokuValues()})
+            });
+
+            if (!response.ok) {
+                const errorMessage = await response.text();  // 오류 메시지 읽기
+                throw new Error(errorMessage);  // 오류 발생 시 에러로 처리
+            }
+
+            const result = await response.json();
+            setSudokuValues(result.solution);
+            document.getElementById('hideSolutionButton').style.display = 'block';
+
+        } catch (error) {
+            alert(`오류 발생: ${error.message}`);  // 오류 메시지를 alert로 표시
+            console.error('Error:', error);
+        } finally {
+            toggleLoading(false); // 로딩 종료
+        }
+    }
+
+    function hideSolution() {
+        const inputs = document.querySelectorAll('#sudokuTable input');
+        inputs.forEach((input, index) => {
+            input.value = originalValues[index] || '';
+            input.style.color = 'black';
+        });
+        document.getElementById('hideSolutionButton').style.display = 'none';
+    }
+
+    document.getElementById('sudokuType').addEventListener('change', initSudoku);
+    document.getElementById('solveButton').addEventListener('click', checkSolution);
+    document.getElementById('hideSolutionButton').addEventListener('click', hideSolution);
+    document.getElementById('refreshButton').addEventListener('click', () => location.reload());
+    initSudoku();
+</script>
+</body>
+</html>
