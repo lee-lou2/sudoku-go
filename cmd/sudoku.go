@@ -6,10 +6,12 @@ import (
 	"sync"
 )
 
+// SubGrid 스도쿠 박스 크기 구조체
 type SubGrid struct {
 	width, height int
 }
 
+// Cell 스도쿠 좌표 구조체
 type Cell struct {
 	x, y int
 }
@@ -41,13 +43,29 @@ func contains(arr []int, target int) bool {
 	return false
 }
 
-// getEmptyCells 0인 좌표와 0의 개수를 반환
-func getEmptyCells(grid [][]int, subGrid SubGrid) []Cell {
+// hasDuplicates 중복된 값이 있는지 확인하는 함수
+func hasDuplicates(arr []int) bool {
+	seen := make(map[int]bool)
+	for _, v := range arr {
+		if v != 0 {
+			if seen[v] {
+				return true
+			}
+			seen[v] = true
+		}
+	}
+	return false
+}
+
+// getEmptyCell 0인 좌표와 0의 개수를 반환
+func getEmptyCell(grid [][]int) *Cell {
+	subGrid := GridMap[len(grid)]
 	type cellInfo struct {
 		cell Cell
 		cnt  int
 	}
 	cellInfoList := make([]cellInfo, 0)
+
 	for y, row := range grid {
 		for x, cell := range row {
 			if cell == 0 {
@@ -84,21 +102,22 @@ func getEmptyCells(grid [][]int, subGrid SubGrid) []Cell {
 		}
 	}
 
+	if len(cellInfoList) == 0 {
+		return nil
+	}
+
 	// emptyCnt 기준으로 정렬
 	sort.Slice(cellInfoList, func(i, j int) bool {
 		return cellInfoList[i].cnt < cellInfoList[j].cnt
 	})
 
-	emptyCells := make([]Cell, 0)
-	for _, cellInfo := range cellInfoList {
-		emptyCells = append(emptyCells, cellInfo.cell)
-	}
-
-	return emptyCells
+	return &cellInfoList[0].cell
 }
 
 // getCandidateNumbers 해당 좌표에 들어갈 수 있는 숫자를 반환
-func getCandidateNumbers(grid [][]int, cell Cell, subGrid SubGrid) []int {
+func getCandidateNumbers(grid [][]int, cell *Cell) []int {
+	subGrid := GridMap[len(grid)]
+
 	// 해당 좌표의 행 데이터 가져오기
 	rowData := grid[cell.y]
 	row := make([]int, subGrid.width*subGrid.height)
@@ -116,7 +135,7 @@ func getCandidateNumbers(grid [][]int, cell Cell, subGrid SubGrid) []int {
 	currSubGrid := make([]int, 0, subGrid.width*subGrid.height)
 	for i := subGridY; i < subGridY+subGrid.height; i++ {
 		for j := subGridX; j < subGridX+subGrid.width; j++ {
-			currSubGrid = append(currSubGrid, grid[i][j]) // 슬라이스에 값 추가
+			currSubGrid = append(currSubGrid, grid[i][j])
 		}
 	}
 
@@ -132,11 +151,12 @@ func getCandidateNumbers(grid [][]int, cell Cell, subGrid SubGrid) []int {
 }
 
 // tryPlaceNumber 스도쿠 퍼즐 풀기
-func tryPlaceNumber(ctx *context.Context, grid [][]int, emptyCells []Cell, subGrid SubGrid) bool {
-	cell := emptyCells[0]
-	emptyCells = emptyCells[1:]
-	copiedEmptyCells := make([]Cell, len(emptyCells))
-	copy(copiedEmptyCells, emptyCells)
+func tryPlaceNumber(ctx *context.Context, grid [][]int) bool {
+	cell := getEmptyCell(grid)
+	if cell == nil {
+		*ctx = context.WithValue(*ctx, "result", grid)
+		return true
+	}
 
 	copiedGrid := make([][]int, len(grid))
 	for i := range grid {
@@ -144,11 +164,7 @@ func tryPlaceNumber(ctx *context.Context, grid [][]int, emptyCells []Cell, subGr
 		copy(copiedGrid[i], grid[i])
 	}
 
-	numbers := getCandidateNumbers(copiedGrid, cell, subGrid)
-
-	if len(numbers) == 0 {
-		return false
-	}
+	numbers := getCandidateNumbers(copiedGrid, cell)
 
 	for _, number := range numbers {
 		select {
@@ -156,24 +172,19 @@ func tryPlaceNumber(ctx *context.Context, grid [][]int, emptyCells []Cell, subGr
 			return false
 		default:
 		}
-
 		copiedGrid[cell.y][cell.x] = number
-		if len(copiedEmptyCells) == 0 {
-			*ctx = context.WithValue(*ctx, "result", copiedGrid)
+		if tryPlaceNumber(ctx, copiedGrid) {
 			return true
 		}
-
-		if tryPlaceNumber(ctx, copiedGrid, copiedEmptyCells, subGrid) {
-			return true
-		}
-
 		copiedGrid[cell.y][cell.x] = 0
 	}
 	return false
 }
 
 // validateResult result 검증 (zeroCheck 인자를 추가하여 0을 체크할지 말지 제어)
-func validateResult(grid [][]int, subGrid SubGrid, checkEmpty bool) bool {
+func validateResult(grid [][]int, checkEmpty bool) bool {
+	subGrid := GridMap[len(grid)]
+
 	// 행에 중복된 값이 없는지 확인
 	for _, rowData := range grid {
 		if checkEmpty && contains(rowData, 0) {
@@ -216,31 +227,13 @@ func validateResult(grid [][]int, subGrid SubGrid, checkEmpty bool) bool {
 	return true
 }
 
-// hasDuplicates 중복된 값이 있는지 확인하는 함수
-func hasDuplicates(arr []int) bool {
-	seen := make(map[int]bool)
-	for _, v := range arr {
-		if v != 0 {
-			if seen[v] {
-				return true
-			}
-			seen[v] = true
-		}
-	}
-	return false
-}
-
 func SolveSudoku(grid [][]int) ([][]int, string) {
-	subGrid := GridMap[len(grid)]
-
-	if !validateResult(grid, subGrid, false) {
+	if !validateResult(grid, false) {
 		return nil, "입력하신 데이터가 올바르지 않습니다."
 	}
 
-	emptyCells := getEmptyCells(grid, subGrid)
-	cell := emptyCells[0]
-	emptyCells = emptyCells[1:]
-	numbers := getCandidateNumbers(grid, cell, subGrid)
+	cell := getEmptyCell(grid)
+	numbers := getCandidateNumbers(grid, cell)
 
 	var result [][]int
 
@@ -259,7 +252,7 @@ func SolveSudoku(grid [][]int) ([][]int, string) {
 			}
 			tempGrid[cell.y][cell.x] = number
 
-			if tryPlaceNumber(&ctx, tempGrid, emptyCells, subGrid) {
+			if tryPlaceNumber(&ctx, tempGrid) {
 				result = ctx.Value("result").([][]int)
 				cancel()
 			}
@@ -268,29 +261,11 @@ func SolveSudoku(grid [][]int) ([][]int, string) {
 
 	wg.Wait()
 
-	for _, number := range numbers {
-		wg.Add(1)
-		go func(number int) {
-			defer wg.Done()
-			tempGrid := make([][]int, len(grid))
-			for i := range grid {
-				tempGrid[i] = make([]int, len(grid[i]))
-				copy(tempGrid[i], grid[i])
-			}
-			tempGrid[cell.y][cell.x] = number
-
-			if tryPlaceNumber(&ctx, tempGrid, emptyCells, subGrid) {
-				result = ctx.Value("result").([][]int)
-				cancel()
-			}
-		}(number)
-	}
-
 	if result == nil || len(result) == 0 {
 		return nil, "데이터 추출을 실패하였습니다."
 	}
 
-	if !validateResult(result, subGrid, true) {
+	if !validateResult(result, true) {
 		return nil, "결과 검증에 실패하였습니다."
 	}
 
