@@ -183,7 +183,14 @@ func tryPlaceNumber(ctx *context.Context, grid [][]int) bool {
 
 // validateResult result 검증 (zeroCheck 인자를 추가하여 0을 체크할지 말지 제어)
 func validateResult(grid [][]int, checkEmpty bool) bool {
-	subGrid := GridMap[len(grid)]
+	// 그리드 크기와 서브그리드 크기
+	gridSize := len(grid)
+	subGridSize := GridMap[gridSize]
+
+	// 숫자가 유효 범위 내에 있는지 확인
+	isValidNumber := func(n int) bool {
+		return n >= 1 && n <= gridSize
+	}
 
 	// 행에 중복된 값이 없는지 확인
 	for _, rowData := range grid {
@@ -193,25 +200,41 @@ func validateResult(grid [][]int, checkEmpty bool) bool {
 		if hasDuplicates(rowData) {
 			return false
 		}
+		// 유효 범위 검사
+		for _, num := range rowData {
+			if !isValidNumber(num) && num != 0 {
+				return false
+			}
+		}
 	}
 
 	// 열에 중복된 값이 없는지 확인
-	for i := 0; i < subGrid.width*subGrid.height; i++ {
-		if checkEmpty && contains(grid[i], 0) {
+	for col := 0; col < gridSize; col++ {
+		columnData := make([]int, gridSize)
+		for row := 0; row < gridSize; row++ {
+			columnData[row] = grid[row][col]
+		}
+		if checkEmpty && contains(columnData, 0) {
 			return false
 		}
-		if hasDuplicates(grid[i]) {
+		if hasDuplicates(columnData) {
 			return false
+		}
+		// 유효 범위 검사
+		for _, num := range columnData {
+			if !isValidNumber(num) && num != 0 {
+				return false
+			}
 		}
 	}
 
-	// 박스에 중복된 값이 없는지 확인
-	for subGridY := 0; subGridY < subGrid.height; subGridY++ {
-		for subGridX := 0; subGridX < subGrid.width; subGridX++ {
-			currSubGrid := make([]int, 0, subGrid.width*subGrid.height)
-			// 박스 크기에 맞게 범위 수정
-			for i := subGridY * subGrid.height; i < (subGridY+1)*subGrid.height && i < len(grid); i++ {
-				for j := subGridX * subGrid.width; j < (subGridX+1)*subGrid.width && j < len(grid[i]); j++ {
+	// 서브그리드에 중복된 값이 없는지 확인
+	for subGridY := 0; subGridY < subGridSize.height; subGridY++ {
+		for subGridX := 0; subGridX < subGridSize.width; subGridX++ {
+			currSubGrid := make([]int, 0, subGridSize.width*subGridSize.height)
+			// 서브그리드 크기에 맞게 범위 설정
+			for i := subGridY * subGridSize.height; i < (subGridY+1)*subGridSize.height && i < gridSize; i++ {
+				for j := subGridX * subGridSize.width; j < (subGridX+1)*subGridSize.width && j < gridSize; j++ {
 					currSubGrid = append(currSubGrid, grid[i][j])
 				}
 			}
@@ -220,6 +243,12 @@ func validateResult(grid [][]int, checkEmpty bool) bool {
 			}
 			if hasDuplicates(currSubGrid) {
 				return false
+			}
+			// 유효 범위 검사
+			for _, num := range currSubGrid {
+				if !isValidNumber(num) && num != 0 {
+					return false
+				}
 			}
 		}
 	}

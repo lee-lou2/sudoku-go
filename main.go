@@ -1,8 +1,24 @@
 package main
 
-import "sudoku-go/api"
+import (
+	"fmt"
+	"sudoku-go/cmd"
+)
 
 func main() {
 	// 서버 실행
-	api.RunServer()
+	//api.RunServer()
+	input := [][]int{
+		{0, 0, 0, 0, 1, 0, 0, 0, 0},
+		{0, 0, 0, 0, 4, 0, 0, 0, 0},
+		{0, 0, 0, 0, 2, 0, 0, 0, 0},
+		{0, 0, 0, 0, 1, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0},
+	}
+	r, m := cmd.SolveSudoku(input)
+	fmt.Println(r, m)
 }
