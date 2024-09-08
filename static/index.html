@@ -174,11 +174,6 @@
             <option value="3,4">12x12 (3x4 블록)</option>
             <option value="5,3">15x15 (5x3 블록)</option>
             <option value="4,4">16x16 (4x4 블록)</option>
-            <option value="5,5">25x25 (5x5 블록)</option>
-            <option value="6,6">36x36 (6x6 블록)</option>
-            <option value="7,7">49x49 (7x7 블록)</option>
-            <option value="8,8">64x64 (8x8 블록)</option>
-            <option value="9,9">81x81 (9x9 블록)</option>
         </select>
         <button class="refresh-button" id="refreshButton">새로고침</button>
     </div>
@@ -194,6 +189,7 @@
 
 <script>
     let originalValues = [];  // 원래 값 저장
+    let userInputs = [];  // 사용자가 직접 입력한 값을 저장
 
     function createSudokuTable(rows, cols) {
         const table = document.createElement('table');
@@ -206,6 +202,9 @@
                 input.type = 'number';
                 input.min = '1';
                 input.max = size.toString();
+                input.addEventListener('input', function () {
+                    userInputs[i * size + j] = input.value;  // 사용자 입력 저장
+                });
                 cell.appendChild(input);
                 row.appendChild(cell);
             }
@@ -237,18 +236,8 @@
         const table = createSudokuTable(rows, cols);
         setBorders(table, rows, cols);
         sudokuTable.appendChild(table);
-
-        const inputs = sudokuTable.getElementsByTagName('input');
-        for (let input of inputs) {
-            input.addEventListener('input', function () {
-                if (this.value.length > String(size).length) {
-                    this.value = this.value.slice(0, String(size).length);
-                }
-                if (parseInt(this.value) > size) {
-                    this.value = '';
-                }
-            });
-        }
+        userInputs = new Array(size * size).fill('');  // 사용자 입력 배열 초기화
+        document.getElementById('hideSolutionButton').style.display = 'none';  // 숨기기 버튼 비활성화
     }
 
     function getSudokuValues() {
@@ -276,9 +265,9 @@
         solution = solution.flat();
         const inputs = document.querySelectorAll('#sudokuTable input');
         inputs.forEach((input, index) => {
-            if (!input.value) {
+            if (!userInputs[index]) {  // 사용자가 입력한 값이 아니면 자동으로 추가된 값
                 input.value = solution[index];
-                input.style.color = '#ff6666';
+                input.style.color = '#ff6666';  // 추가된 값은 빨간색으로 표시
             } else {
                 input.style.color = 'black';
             }
@@ -326,10 +315,12 @@
     function hideSolution() {
         const inputs = document.querySelectorAll('#sudokuTable input');
         inputs.forEach((input, index) => {
-            input.value = originalValues[index] || '';
-            input.style.color = 'black';
+            if (!userInputs[index]) {  // 사용자가 입력하지 않은 값만 지움
+                input.value = '';
+            }
+            input.style.color = 'black';  // 모든 값 검정색으로 변경
         });
-        document.getElementById('hideSolutionButton').style.display = 'none';
+        document.getElementById('hideSolutionButton').style.display = 'none';  // 숨기기 버튼 숨김
     }
 
     document.getElementById('sudokuType').addEventListener('change', initSudoku);
