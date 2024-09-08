@@ -12,7 +12,7 @@
 
 ## Install
 
-1. git clone or fork
+1. git clone
 ```bash
 git clone https://github.com/lee-lou2/sudoku-go.git
 ```
